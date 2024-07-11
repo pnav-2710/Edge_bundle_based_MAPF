@@ -27,7 +27,7 @@ class edge:
 G = nx.DiGraph()
 
 try:
-    data = np.load('bundleclass1000.npy', allow_pickle=True)
+    data = np.load('bundle.npy', allow_pickle=True)
 except FileNotFoundError:
     print("The file 'bundle.npy' does not exist.")
 else:
@@ -132,6 +132,7 @@ while goal_reached is not True:#goal_n>(0,0,0)):
         pos_y = 2
 
     goal_coordinate = [pos_x,pos_y,0]
+    text=p.addUserDebugText("X", goal_coordinate, [1, 0, 0], textSize=1)
 
     print(goal_coordinate)
     print(goal_reached)
@@ -181,15 +182,16 @@ while goal_reached is not True:#goal_n>(0,0,0)):
             best_edge=bundle[edgenum]
             p.resetBaseVelocity(boxId,[best_edge.vel[0]*math.cos(theta),best_edge.vel[0]*math.sin(theta), 0.0], [0.0,0.0,best_edge.vel[1]])
             print("applied velocities are:",best_edge.vel[0],best_edge.vel[1])
-
+        pathmark=[]
         current_step = 0
         while(current_step!=int(no_of_steps)):
             p.stepSimulation()
-            time.sleep(1./960.)
+            time.sleep(1./240.)
             currPos,currOrn=p.getBasePositionAndOrientation(boxId)
             #joint_states = p.getJointStates(boxId)
             # d = col_detector.compute_distances(joint_states)
             # in_col = col_detector.in_collision(joint_states)
+            pathmark.append((currPos, currOrn))
             for i in obstacle_list:
                 closest_points = p.getClosestPoints(bodyA=boxId, bodyB=i,distance = 0.1, physicsClientId=physicsClient)
                 #print(closest_points)
@@ -206,7 +208,25 @@ while goal_reached is not True:#goal_n>(0,0,0)):
     curPos, curOrn = p.getBasePositionAndOrientation(boxId)
     currentPos = list(curPos)
     currentOrn = list(curOrn)
+    listmarkerid=[]
+    k=0
+    for i in range(len(pathmark)-1):
+        pos1, orn1 = pathmark[i]
+        pos2, orn2 = pathmark[i+1]
+        x=p.addUserDebugLine(pos1, pos2, [1, 0, 0], 2, 0)
+        listmarkerid.append(x)
+        k+=1
+
+    time.sleep(1)
+    p.removeUserDebugItem(text)
+    k=0
+    for i in range(len(pathmark)-1):
+        pos1, orn1 = pathmark[i]
+        pos2, orn2 = pathmark[i+1]
+        p.removeUserDebugItem(listmarkerid[k])
+        k+=1
     
+
     #add node to the graph
     x = node(pos = currentPos , orn = currentOrn)
     G.add_node(x)
