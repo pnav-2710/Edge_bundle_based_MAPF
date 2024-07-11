@@ -9,9 +9,12 @@ import matplotlib.pyplot as plt
 
 
 class node:
-    def __init__(self,pos=[0,0,0],orn=[0,0,0,0]):
+    def __init__(self,pos=[0,0,0],orn=[0,0,0,0],vel = [0,0],time = 0):
         self.pos= pos
         self.orn = orn
+        self.vel = vel
+        self.time = time
+
 
 class edge:
     def _init_(self, vel=[0,0], time=0, pos=[0,0,0],orn=[0,0,0,0]):
@@ -53,6 +56,7 @@ def quickSort(bundle,low,high,goal_position_local):
         quickSort(bundle,low,pi-1,goal_position_local)
         quickSort(bundle,pi+1,high,goal_position_local)
 
+#returns the best edge which leads the robot closer to its goal_coordinate
 def find_distance_between_edge_goal(goal_position_local):
     print(goal_position_local)
     edge_goal_distance = []
@@ -65,13 +69,14 @@ def find_distance_between_edge_goal(goal_position_local):
         if(ed < min_ed):
             min_ed = ed
             min = e
-    size=10
+    size=100
     quickSort(bundle,0,size-1,goal_position_local)
     #print(bundle)
     print(min)
     #print(edge_goal_distance)
     return min
 
+#transforms the actual goal according to the new origin
 def transform_and_rotate(position,orientation,original_goal):
     x1,y1,z1 = position
     print("local origin:",position,x1,y1,z1)
@@ -88,6 +93,32 @@ def transform_and_rotate(position,orientation,original_goal):
     print(final_goal)
     return list(final_goal)
 
+#function to execute the final path after state space exploration
+def execute_path():
+    print("EXECUTING PATH@@@@@@@@YAYYYYYYY")
+    no_of_nodes = len(path) - 1
+    current_node = path[no_of_nodes]
+    #theta = p.getEulerFromQuaternion()[2]
+    while(current_node!=path[0]):
+        no_of_nodes = no_of_nodes - 1
+        p.resetBasePositionAndOrientation(boxId,current_node.pos,current_node.orn)
+        print(p.getBasePositionAndOrientation(boxId))
+        next_node = path[no_of_nodes]
+        theta = p.getEulerFromQuaternion(current_node.orn)[2]
+        p.resetBaseVelocity(boxId,[next_node.vel[0]*math.cos(theta),next_node.vel[0]*math.sin(theta), 0.0], [0.0,0.0,next_node.vel[1]])
+        print("applied velocities are:",next_node.vel[0],next_node.vel[1])
+        rand_time = next_node.time
+        print("randomly chosen time",rand_time)
+        no_of_steps=rand_time * 240
+        print("no of steps", int(no_of_steps))
+        print("endpoints of the edge: ",next_node.pos)
+        current_step = 0
+        while(current_step!=int(no_of_steps)):
+            p.stepSimulation()
+            time.sleep(1./240.)
+            current_step=current_step+1  
+        current_node = next_node
+
 
 physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
 p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
@@ -97,17 +128,19 @@ planeId = p.loadURDF("plane.urdf",[0,0,0],p.getQuaternionFromEuler([0,0,0]),useF
 startPos = [0,0,0]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
 boxId = p.loadURDF("robot.urdf",startPos, startOrientation,useFixedBase=True,flags=p.URDF_USE_INERTIA_FROM_FILE|p.URDF_USE_MATERIAL_COLORS_FROM_MTL,physicsClientId=0)
+#box2Id = p.loadURDF("robot.urdf",startPos, startOrientation,useFixedBase=True,flags=p.URDF_USE_INERTIA_FROM_FILE|p.URDF_USE_MATERIAL_COLORS_FROM_MTL,physicsClientId=0)
+
 # Initialize an empty list to store the path
 #load_bundle=np.load('bundleclass.npy',allow_pickle=True) 
 #print(bundle)
-x = node(pos = [0,0,0],orn = list(p.getQuaternionFromEuler([0,0,0])))
+x = node(pos = [0,0,0],orn = list(p.getQuaternionFromEuler([0,0,0])),vel = [0,0], time = 0)
 G.add_node(x)
 actual_goal = [2,2,0]
 goal_reached = False
 
 #Obstacle 
 obstacleSize = [0.25, 0.25, 0.25]  # Width, Length, Height
-obstaclePosition = [1,1,0]  # X, Y, Z position relative to the origin
+obstaclePosition = [3,1,0]  # X, Y, Z position relative to the origin
 obstacleOrientation = [0, 0, 0, 1]  # Orientation in Euler angles
 
 obstacleId = p.createCollisionShape(p.GEOM_BOX, halfExtents=obstacleSize)
@@ -165,14 +198,12 @@ while goal_reached is not True:#goal_n>(0,0,0)):
     #simulate the edge
     p.resetBaseVelocity(boxId,[best_edge.vel[0]*math.cos(theta),best_edge.vel[0]*math.sin(theta), 0.0], [0.0,0.0,best_edge.vel[1]])
     print("applied velocities are:",best_edge.vel[0],best_edge.vel[1])
-    rand_time = best_edge.time
-    print("randomly chosen time",rand_time)
-    no_of_steps=rand_time * 240
-    print("no of steps", int(no_of_steps))
+    
     
     flag=1
     edgenum=0
     while(True):
+        #p.resetBasePositionAndOrientation(boxId,minimum_state.pos,minimum_state.orn)
         print("-------")
         print(flag)
         if(flag==0):
@@ -182,11 +213,15 @@ while goal_reached is not True:#goal_n>(0,0,0)):
             best_edge=bundle[edgenum]
             p.resetBaseVelocity(boxId,[best_edge.vel[0]*math.cos(theta),best_edge.vel[0]*math.sin(theta), 0.0], [0.0,0.0,best_edge.vel[1]])
             print("applied velocities are:",best_edge.vel[0],best_edge.vel[1])
+        rand_time = best_edge.time
+        print("randomly chosen time",rand_time)
+        no_of_steps=rand_time * 240
+        print("no of steps", int(no_of_steps))
         pathmark=[]
         current_step = 0
         while(current_step!=int(no_of_steps)):
             p.stepSimulation()
-            time.sleep(1./240.)
+            #time.sleep(1./240.)
             currPos,currOrn=p.getBasePositionAndOrientation(boxId)
             #joint_states = p.getJointStates(boxId)
             # d = col_detector.compute_distances(joint_states)
@@ -198,7 +233,7 @@ while goal_reached is not True:#goal_n>(0,0,0)):
                 if(len(closest_points)!=0):#Collision in the edge
                     edgenum=edgenum+1
                     flag=1
-
+                    p.resetBasePositionAndOrientation(boxId,minimum_state.pos,minimum_state.orn)
                     print("closest pointsss:",closest_points)
                     break
             
@@ -206,8 +241,10 @@ while goal_reached is not True:#goal_n>(0,0,0)):
                 break
             current_step=current_step+1      
     curPos, curOrn = p.getBasePositionAndOrientation(boxId)
+
     currentPos = list(curPos)
     currentOrn = list(curOrn)
+
     listmarkerid=[]
     k=0
     for i in range(len(pathmark)-1):
@@ -226,9 +263,8 @@ while goal_reached is not True:#goal_n>(0,0,0)):
         p.removeUserDebugItem(listmarkerid[k])
         k+=1
     
-
     #add node to the graph
-    x = node(pos = currentPos , orn = currentOrn)
+    x = node(pos = currentPos , orn = currentOrn, vel = best_edge.vel, time = best_edge.time)
     G.add_node(x)
     G.add_edge(minimum_state,x)
 
@@ -246,7 +282,7 @@ while goal_reached is not True:#goal_n>(0,0,0)):
 # print(orn,pos,goal_n)
 
 for n in G:
-    print(n)
+    print(n.pos)
 print(n)
 path = []
 path.append(n)
@@ -260,5 +296,8 @@ while(n.pos!=[0,0,0]):
         n = edge[0]
         path.append(n)
 print(path)
+for e in path:
+    print(e.pos,e.time)
 
+execute_path()
 p.disconnect()
