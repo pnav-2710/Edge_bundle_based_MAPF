@@ -1,0 +1,499 @@
+import numpy as np
+import math
+import pybullet as p
+import time
+import pybullet_data
+import random
+import networkx as nx
+import matplotlib.pyplot as plt
+
+
+class node:
+    def __init__(self,pos=[0,0,0],orn=[0,0,0,0],vel = [0,0],time = 0):
+        self.pos= pos
+        self.orn = orn
+        self.vel = vel
+        self.time = time
+
+
+class edge:
+    def _init_(self, vel=[0,0], time=0, pos=[0,0,0],orn=[0,0,0,0]):
+        self.vel = vel
+        self.time = time
+        self.pos = pos
+        self.orn=orn
+    def getstate(self):
+        return {'vel': self.vel, 'time': self.time, 'pos': self.pos,'orn':self.orn}
+    def setstate(self, state):
+        self.dict.update(state)
+
+G = nx.DiGraph()
+
+try:
+    data = np.load('bundleclass1000.npy', allow_pickle=True)
+except FileNotFoundError:
+    print("The file 'bundle.npy' does not exist.")
+else:
+    bundle = data.tolist()
+
+def euclidean_distance(point1,point2):
+    euclidean_dist = np.linalg.norm(np.array(point1)-np.array(point2))
+    return euclidean_dist
+
+def partition(bundle,low,high,goal_position_local):
+    pivot=bundle[high]
+    i=low-1
+    for j in range(low,high):
+        if(euclidean_distance(bundle[j].pos,goal_position_local)<euclidean_distance(pivot.pos,goal_position_local)):
+            i=i+1
+            (bundle[i],bundle[j])=(bundle[j],bundle[i])
+    (bundle[i+1],bundle[high])=(bundle[high],bundle[i+1])
+    return i+1
+
+def quickSort(bundle,low,high,goal_position_local):
+    if(low<high):
+        pi=partition(bundle,low,high,goal_position_local)
+        quickSort(bundle,low,pi-1,goal_position_local)
+        quickSort(bundle,pi+1,high,goal_position_local)
+
+#returns the best edge which leads the robot closer to its goal_coordinate
+def find_distance_between_edge_goal(goal_position_local):
+    print(goal_position_local)
+    edge_goal_distance = []
+    #no_of_edges= 10
+    min = 0
+    min_ed=math.inf
+    for e in bundle:
+        ed = euclidean_distance(e.pos,goal_position_local)
+        edge_goal_distance.append(ed)        
+        if(ed < min_ed):
+            min_ed = ed
+            min = e
+    size=100
+    quickSort(bundle,0,size-1,goal_position_local)
+    #print(bundle)
+    print(min)
+    #print(edge_goal_distance)
+    return min
+
+#transforms the actual goal according to the new origin
+def transform_and_rotate(position,orientation,original_goal):
+    x1,y1,z1 = position
+    print("local origin:",position,x1,y1,z1)
+    x2,y2,z2 = original_goal
+    print("goal acc to global origin:",original_goal,x2,y2,z2)
+    new_goal = (x2-x1,y2-y1,z2-z1)
+    print("translated goal is: ",new_goal)
+    print(p.getEulerFromQuaternion(orientation))
+    angle= p.getEulerFromQuaternion(orientation)[2]
+    print("the angle of orientation is: ",angle)
+    x3,y3,z3 = new_goal
+    print(x3*math.cos(angle),y3*math.sin(angle),x3*math.sin(angle),y3*math.cos(angle))
+    final_goal = ((x3*math.cos(angle)+y3*math.sin(angle)),(-x3*math.sin(angle)+y3*math.cos(angle)),z3)
+    print(final_goal)
+    return list(final_goal)
+
+#function to execute the final path after state space exploration
+def execute_path():
+    print("EXECUTING PATH@@@@@@@@YAYYYYYYY")
+    no_of_nodes=[]
+    current_node=[]
+    # no_of_nodes_1 = len(pathlist[0])-1
+    # no_of_nodes_2=len(pathlist[1])-1
+    # current_node_1 = pathlist[0][no_of_nodes_1]
+    # current_node_2 = pathlist[1][no_of_nodes_2]
+    for i in range(len(pathlist)):
+        no_of_nodes.append(len(pathlist[i])-1)
+        current_node.append(pathlist[i][no_of_nodes[i]])
+        print(current_node[i].pos)
+
+    next_node_list=[]
+    
+    #theta = p.getEulerFromQuaternion()[2]
+    # while(current_node_1!=pathlist[0][0] and current_node_2!=pathlist[1][0]):
+
+    #     no_of_nodes_1 = no_of_nodes_1 - 1
+    #     no_of_nodes_2 = no_of_nodes_2 - 1
+        
+    #     p.resetBasePositionAndOrientation(listbox[0][0],current_node_1.pos,current_node_1.orn)
+    #     print(p.getBasePositionAndOrientation(listbox[0][0]))
+    #     p.resetBasePositionAndOrientation(listbox[1][0],current_node_2.pos,current_node_2.orn)
+    #     print(p.getBasePositionAndOrientation(listbox[1][0]))
+    #     next_node_1 = pathlist[0][no_of_nodes_1]
+    #     next_node_2 = pathlist[1][no_of_nodes_2]
+    #     theta_1 = p.getEulerFromQuaternion(current_node_1.orn)[2]
+    #     theta_2 = p.getEulerFromQuaternion(current_node_2.orn)[2]
+    #     p.resetBaseVelocity(listbox[0][0],[next_node_1.vel[0]*math.cos(theta_1),next_node_1.vel[0]*math.sin(theta_1), 0.0], [0.0,0.0,next_node_1.vel[1]])
+    #     print("applied velocities are:",next_node_1.vel[0],next_node_1.vel[1])
+    #     p.resetBaseVelocity(listbox[1][0],[next_node_2.vel[0]*math.cos(theta_2),next_node_2.vel[0]*math.sin(theta_2), 0.0], [0.0,0.0,next_node_2.vel[1]])
+    #     print("applied velocities are:",next_node_2.vel[0],next_node_2.vel[1])
+    #     rand_time_1 = next_node_1.time
+    #     rand_time_2 = next_node_2.time
+    #     print("randomly chosen time1",rand_time_1)
+    #     print("randomly chosen time2",rand_time_2)
+    #     no_of_steps_1=rand_time_1 * 240
+    #     no_of_steps_2=rand_time_2 * 240
+    #     print("no of steps1", int(no_of_steps_1))
+    #     print("no of steps2", int(no_of_steps_2))
+    #     print("endpoints of the edge1: ",next_node_1.pos)
+    #     print("endpoints of the edge2: ",next_node_2.pos)
+    #     current_step_1 = 0
+    #     current_step_2 = 0
+    #     while(current_step_1!=int(no_of_steps_1)):
+    #         p.stepSimulation()
+    #         #time.sleep(1./10000.)
+    #         current_step_1=current_step_1+1  
+    #     current_node_1 = next_node_1
+    #     while(current_step_2!=int(no_of_steps_2)):
+    #         p.stepSimulation()
+    #         #time.sleep(1./10000.)
+    #         current_step_2=current_step_2+1  
+    #     current_node_2 = next_node_2
+
+    # while(current_node_1!=pathlist[0][0]):
+    #     no_of_nodes_1 = no_of_nodes_1 - 1
+    #     p.resetBasePositionAndOrientation(listbox[0][0],current_node_1.pos,current_node_1.orn)
+    #     print(p.getBasePositionAndOrientation(listbox[0][0]))
+    #     next_node_1 = pathlist[no_of_nodes_1]
+    #     theta_1 = p.getEulerFromQuaternion(current_node_1.orn)[2]
+    #     p.resetBaseVelocity(listbox[0][0],[next_node_1.vel[0]*math.cos(theta_1),next_node_1.vel[0]*math.sin(theta_1), 0.0], [0.0,0.0,next_node_1.vel[1]])
+    #     print("applied velocities are:",next_node_1.vel[0],next_node_1.vel[1])
+    #     rand_time_1 = next_node_1.time
+    #     print("randomly chosen time1",rand_time_1)
+    #     no_of_steps_1=rand_time_1 * 240
+    #     print("no of steps1", int(no_of_steps_1))
+    #     print("endpoints of the edge1: ",next_node_1.pos)
+    #     current_step_1 = 0
+    #     while(current_step_1!=int(no_of_steps_1)):
+    #         p.stepSimulation()
+    #         #time.sleep(1./10000.)
+    #         current_step_1=current_step_1+1  
+    #     current_node_1 = next_node_1
+
+    # while(current_node_2!=pathlist[0][0]):
+    #     no_of_nodes_2 = no_of_nodes_2 - 1
+    #     p.resetBasePositionAndOrientation(listbox[0][0],current_node_2.pos,current_node_2.orn)
+    #     print(p.getBasePositionAndOrientation(listbox[0][0]))
+    #     next_node_2 = pathlist[no_of_nodes_2]
+    #     theta_2 = p.getEulerFromQuaternion(current_node_2.orn)[2]
+    #     p.resetBaseVelocity(listbox[0][0],[next_node_2.vel[0]*math.cos(theta_2),next_node_2.vel[0]*math.sin(theta_2), 0.0], [0.0,0.0,next_node_2.vel[1]])
+    #     print("applied velocities are:",next_node_2.vel[0],next_node_2.vel[1])
+    #     rand_time_2 = next_node_2.time
+    #     print("randomly chosen time2",rand_time_2)
+    #     no_of_steps_2=rand_time_2 * 240
+    #     print("no of steps2", int(no_of_steps_2))
+    #     print("endpoints of the edge2: ",next_node_2.pos)
+    #     current_step_2 = 0
+    #     while(current_step_2!=int(no_of_steps_2)):
+    #         p.stepSimulation()
+    #         #time.sleep(1./10000.)
+    #         current_step_2=current_step_2+1  
+    #     current_node_2 = next_node_2
+
+        #p.getBasePositionAndOrientation(box[0])
+    
+    count=max(no_of_nodes)+1
+    print(count)
+    for i in range(count):#for iterating through each edge
+        print("sssssssssssssssssssssssssss",i)
+        max_randtime=0
+        for j in range(len(pathlist)):#for iterating through each path 
+            no_of_nodes[j]=no_of_nodes[j]-1
+            next_node=pathlist[j][no_of_nodes[j]]#stores next node for each path
+            next_node_list.append(next_node)
+            if(next_node_list[j].time>max_randtime):#for finding max execution time for each edge
+                max_randtime=next_node_list[j].time
+    
+    
+        no_of_steps=int(max_randtime* 240)
+        for j in range(len(listbox)):#checks is edges are exhausted
+            #print(j)
+            if(no_of_nodes[j]<0):
+                p.resetBaseVelocity(listbox[j][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
+            else:
+                p.resetBasePositionAndOrientation(listbox[j][0],current_node[j].pos,current_node[j].orn)
+                theta= p.getEulerFromQuaternion(current_node[j].orn)[2]
+                p.resetBaseVelocity(listbox[j][0],[next_node_list[j].vel[0]*math.cos(theta),next_node_list[j].vel[0]*math.sin(theta), 0.0],[0.0,0.0,next_node_list[j].vel[1]])
+
+        #print("out of for loop!!!!!!")
+        current_step=0
+        #print(no_of_steps)
+        #print(p.getBasePositionAndOrientation(listbox[0][0]))
+        steps_list = []
+        for m in range(len(pathlist)):
+            steps_list.append(int(next_node_list[m].time * 240))
+        while(current_step!=int(no_of_steps)):
+            #print("current step = ",current_step)
+            boolrob=[]#boolean array that stores if robot was stopped 
+            #storevel=[]#stores velocity 
+            for h in range(len(listbox)):
+                boolrob.append(0)
+            for x in range(len(current_node)):
+            
+                for y in range(len(listbox)):
+                    if(listbox[y][0]!=listbox[x][0]):
+                        #time.sleep(10)
+                        #print("sleeping after collisionnnnnnnnn")
+                        closest_points=p.getClosestPoints(bodyA=listbox[x][0],bodyB=listbox[y][0],distance=0.1,physicsClientId=physicsClient)
+                        if(len(closest_points)!=0):
+                            #print("sleeping after collisionnnnnnnnn")
+                            #time.sleep(10)
+
+                            #print("sleeping after collisionnnnnnnnn")
+                            if(x>y):
+                                if(boolrob[y]==0):
+                                    steps_list[y] = steps_list[y] + 1
+                                    p.resetBaseVelocity(listbox[y][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
+                                    boolrob[y]=1
+                                    no_of_steps=no_of_steps+1
+                            else:
+                                if(boolrob[x]==0):
+                                    steps_list[x] = steps_list[x] + 1
+                                    p.resetBaseVelocity(listbox[x][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
+                                    boolrob[x]=1
+                                    no_of_steps=no_of_steps+1
+                            print("*************")
+                            print("y",y,p.getBaseVelocity(listbox[y][0]))
+                            
+            
+                        else:
+                            if(boolrob[y]!=1):
+                                #print("veloooooooooooooo",p.getBaseVelocity(listbox[y][0]))
+                                theta= p.getEulerFromQuaternion(p.getBasePositionAndOrientation(listbox[y][0])[1])[2]
+                                p.resetBaseVelocity(listbox[y][0],[next_node_list[y].vel[0]*math.cos(theta),next_node_list[y].vel[0]*math.sin(theta), 0.0],[0.0,0.0,next_node_list[y].vel[1]])
+                                #print("after collisionnnnnnnn",p.getBaseVelocity(listbox[y][0]))
+                #print(x)
+                #print(int(next_node_list[x].time*240))
+                #print(next_node_list[x].time)
+                #print(steps_list[x])
+                #print(current_step)
+                #print("sleeping zzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+                #time.sleep(1/240)
+                if(steps_list[x]==current_step):#if the edge of the robot is traversed 
+                    #print("this is the steps for this robot:",current_node[x].time * 240)
+                    p.resetBaseVelocity(listbox[x][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
+                #print(boolrob)
+                #print(p.getBaseVelocity(listbox[x][0]))
+            #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            #print(boolrob)
+            # print(p.getBaseVelocity(listbox[0][0]))
+            # if(p.getBaseVelocity(listbox[0][0])==[0.0,0.0, 0.0],[0.0,0.0,0.0]):
+            #     break
+            # print(p.getBaseVelocity(listbox[1][0]))
+
+
+            p.stepSimulation()
+            #time.sleep(1./240.)
+            current_step=current_step+1
+        print(p.getBasePositionAndOrientation(listbox[0][0]))
+        
+        for k in range(len(current_node)):
+            current_node[k]=next_node_list[k]
+        next_node_list=[]
+        print("i is ",i)
+        
+    p.getBasePositionAndOrientation(listbox[1][0])
+
+physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
+p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
+p.setGravity(0,0,-10)
+#p.setRealTimeSimulation(1)
+planeId = p.loadURDF("plane.urdf",[0,0,0],p.getQuaternionFromEuler([0,0,0]),useFixedBase=True)
+startPos1 = [0,5,0]
+startPos2=[5,0,0]
+goal1=[10,5,0]
+goal2=[5,10,0]
+startOrientation = p.getQuaternionFromEuler([0,0,0])
+box1Id = p.loadURDF("robot.urdf",startPos1, startOrientation,useFixedBase=True,flags=p.URDF_USE_INERTIA_FROM_FILE|p.URDF_USE_MATERIAL_COLORS_FROM_MTL,physicsClientId=0)
+box2Id = p.loadURDF("robot.urdf",startPos2, startOrientation,useFixedBase=True,flags=p.URDF_USE_INERTIA_FROM_FILE|p.URDF_USE_MATERIAL_COLORS_FROM_MTL,physicsClientId=0)
+listbox=[[box1Id,goal1,startPos1],[box2Id,goal2,startPos2]]
+
+# Initialize an empty list to store the path
+#load_bundle=np.load('bundleclass.npy',allow_pickle=True) 
+#print(bundle)
+#x = node(pos = [0,0,0],orn = list(p.getQuaternionFromEuler([0,0,0])),vel = [0,0], time = 0)
+#G.add_node(x)
+
+goal_reached = False
+
+#Obstacle 
+obstacleSize = [0.25, 0.25, 0.25]  # Width, Length, Height
+obstaclePosition = [3,1,0]  # X, Y, Z position relative to the origin
+obstacleOrientation = [0, 0, 0, 1]  # Orientation in Euler angles
+
+obstacleId = p.createCollisionShape(p.GEOM_BOX, halfExtents=obstacleSize)
+obstacleVisualShape = p.createVisualShape(p.GEOM_BOX, halfExtents=obstacleSize, rgbaColor=[1, 0, 0, 1])  # Red color
+obstacle = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=obstacleId, baseVisualShapeIndex=obstacleVisualShape, basePosition=obstaclePosition, baseOrientation=obstacleOrientation)
+
+# #Collision Detection
+# col_detector = p.CollisionDetector()
+# col_detector.add_body(boxId)
+# col_detector.add_body(obstacle)
+
+#List to store obstacles
+obstacle_list=[obstacle]
+
+#list for storing paths
+pathlist=[]
+
+for box in listbox:
+    actual_goal = box[1]
+    time.sleep(5)
+    #p.resetBaseVelocity(listbox[0][0],[0.0,0.0, 0.0], [0.0,0.0,0.0])
+    
+    goal_reached=False
+    x = node(pos = box[2],orn = list(p.getQuaternionFromEuler([0,0,0])),vel = [0,0], time = 0)
+    G.add_node(x)
+    while goal_reached is not True:#goal_n>(0,0,0)):
+        chance = random.uniform(0,100)
+        if(0<=int(chance)<90):
+            pos_x = random.uniform(0,6)
+            pos_y = random.uniform(0,6)
+        else:
+            pos_x = box[1][0]
+            pos_y = box[1][1]
+
+        goal_coordinate = [pos_x,pos_y,0]
+        text=p.addUserDebugText("X", goal_coordinate, [1, 0, 0], textSize=1)
+
+        print(goal_coordinate)
+        print(goal_reached)
+        minimum_state = x
+        for state in G:
+            if((euclidean_distance(state.pos,goal_coordinate)) < (euclidean_distance(minimum_state.pos,goal_coordinate))):
+                minimum_state = state
+        print("*******")
+        print(minimum_state.pos,minimum_state.orn)
+
+        p.resetBasePositionAndOrientation(box[0],minimum_state.pos,minimum_state.orn) 
+        print("current pos and orientation after resetting:",p.getBasePositionAndOrientation(box[0]))
+        currentPos=minimum_state.pos
+        currentOrn=minimum_state.orn
+        print(currentPos,currentOrn)
+        #goal_coordinate = [-3,-2,0]#Final goal
+        goal_position_local = transform_and_rotate(minimum_state.pos, minimum_state.orn, goal_coordinate)
+
+
+        best_edge=find_distance_between_edge_goal(goal_position_local)
+        print(best_edge,goal_reached)
+        #print("best edge:", best_edge)
+        pos=best_edge.pos
+        orn=best_edge.orn
+
+        theta = p.getEulerFromQuaternion(currentOrn)[2]
+
+
+        print(pos,orn,list(p.getEulerFromQuaternion(orn)))
+        #simulate the edge
+        p.resetBaseVelocity(box[0],[best_edge.vel[0]*math.cos(theta),best_edge.vel[0]*math.sin(theta), 0.0], [0.0,0.0,best_edge.vel[1]])
+        print("applied velocities are:",best_edge.vel[0],best_edge.vel[1])
+        
+        
+        flag=1
+        edgenum=0
+        while(True):
+            #p.resetBasePositionAndOrientation(boxId,minimum_state.pos,minimum_state.orn)
+            print("-------")
+            print(flag)
+            if(flag==0):
+                break
+            else:
+                flag=0
+                best_edge=bundle[edgenum]
+                p.resetBaseVelocity(box[0],[best_edge.vel[0]*math.cos(theta),best_edge.vel[0]*math.sin(theta), 0.0], [0.0,0.0,best_edge.vel[1]])
+                print("applied velocities are:",best_edge.vel[0],best_edge.vel[1])
+            rand_time = best_edge.time
+            print("randomly chosen time",rand_time)
+            no_of_steps=rand_time * 240
+            print("no of steps", int(no_of_steps))
+            pathmark=[]
+            current_step = 0
+            while(current_step!=int(no_of_steps)):
+                p.stepSimulation()
+                #time.sleep(1./10000.)
+                currPos,currOrn=p.getBasePositionAndOrientation(box[0])
+                #joint_states = p.getJointStates(boxId)
+                # d = col_detector.compute_distances(joint_states)
+                # in_col = col_detector.in_collision(joint_states)
+                pathmark.append((currPos, currOrn))
+                for i in obstacle_list:
+                    closest_points = p.getClosestPoints(bodyA=box[0], bodyB=i,distance = 0.1, physicsClientId=physicsClient)
+                    #print(closest_points)
+                    if(len(closest_points)!=0):#Collision in the edge
+                        edgenum=edgenum+1
+                        flag=1
+                        p.resetBasePositionAndOrientation(box[0],minimum_state.pos,minimum_state.orn)
+                        print("closest pointsss:",closest_points)
+                        break
+                
+                if flag==1:
+                    break
+                current_step=current_step+1      
+        curPos, curOrn = p.getBasePositionAndOrientation(box[0])
+
+        currentPos = list(curPos)
+        currentOrn = list(curOrn)
+
+        # listmarkerid=[]
+        # k=0
+        # for i in range(len(pathmark)-1):
+        #     pos1, orn1 = pathmark[i]
+        #     pos2, orn2 = pathmark[i+1]
+        #     x=p.addUserDebugLine(pos1, pos2, [1, 0, 0], 2, 0)
+        #     listmarkerid.append(x)
+        #     k+=1
+
+        # time.sleep(1)
+        p.removeUserDebugItem(text)
+        # k=0
+        # for i in range(len(pathmark)-1):
+        #     pos1, orn1 = pathmark[i]
+        #     pos2, orn2 = pathmark[i+1]
+        #     p.removeUserDebugItem(listmarkerid[k])
+        #     k+=1
+        
+        #add node to the graph
+        x = node(pos = currentPos , orn = currentOrn, vel = best_edge.vel, time = best_edge.time)
+        G.add_node(x)
+        G.add_edge(minimum_state,x)
+
+        #trace the path
+        print(euclidean_distance(currentPos,actual_goal))
+        if(euclidean_distance(currentPos,actual_goal)<0.5):
+            #print(euclidean_distance(currentPos,goal_coordinate))
+            goal_reached = True
+        
+        #goal_position_local=transform_and_rotate(currentPos,currentOrn,goal_coordinate)
+        print('*')
+        print(pos,orn,currentPos,currentOrn,goal_position_local)
+        print("****** ",goal_reached)
+    # minedge=find_distance_between_edge_goal(goal_n)
+    # print(orn,pos,goal_n)
+
+    for n in G:
+        print(n.pos)
+    print(n)
+    path = []
+    path.append(n)
+    print(path)
+    while(n.pos!=box[2]):
+        incoming_edges_to_C = G.in_edges(n)
+
+        for edge in incoming_edges_to_C:
+            print(edge)
+            print(edge[0].pos)
+            n = edge[0]
+            path.append(n)
+    print(path)
+    for e in path:
+        print(e.pos,e.time)
+    pathlist.append(path)
+    #execute_path(box)
+    #time.sleep(5)
+    G.clear()
+    path=[]
+    p.resetBaseVelocity(box[0],[0.0,0.0, 0.0], [0.0,0.0,0.0])
+
+execute_path()
+    
+p.disconnect()
