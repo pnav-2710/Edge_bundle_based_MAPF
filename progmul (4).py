@@ -240,20 +240,30 @@ def execute_path():
                             #time.sleep(10)
 
                             #print("sleeping after collisionnnnnnnnn")
-                            if(x>y):
+                            if(y>x):
                                 if(boolrob[y]==0):
-                                    steps_list[y] = steps_list[y] + 1
-                                    p.resetBaseVelocity(listbox[y][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
-                                    boolrob[y]=1
-                                    no_of_steps=no_of_steps+1
+                                    if(steps_list[x]<=current_step):
+                                        theta= p.getEulerFromQuaternion(p.getBasePositionAndOrientation(listbox[y][0])[1])[2]
+                                        p.resetBaseVelocity(listbox[y][0],[next_node_list[y].vel[0]*math.cos(theta),next_node_list[y].vel[0]*math.sin(theta), 0.0],[0.0,0.0,next_node_list[y].vel[1]])
+                                    else:
+                                        steps_list[y] = steps_list[y] + 1
+                                        p.resetBaseVelocity(listbox[y][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
+                                        boolrob[y]=1
+                                        no_of_steps=no_of_steps+1
                             else:
                                 if(boolrob[x]==0):
-                                    steps_list[x] = steps_list[x] + 1
-                                    p.resetBaseVelocity(listbox[x][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
-                                    boolrob[x]=1
-                                    no_of_steps=no_of_steps+1
+                                    if(steps_list[y]<=current_step):
+                                        theta= p.getEulerFromQuaternion(p.getBasePositionAndOrientation(listbox[x][0])[1])[2]
+                                        p.resetBaseVelocity(listbox[x][0],[next_node_list[x].vel[0]*math.cos(theta),next_node_list[x].vel[0]*math.sin(theta), 0.0],[0.0,0.0,next_node_list[x].vel[1]])
+                                    else:
+                                        steps_list[x] = steps_list[x] + 1
+                                        p.resetBaseVelocity(listbox[x][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
+                                        boolrob[x]=1
+                                        no_of_steps=no_of_steps+1
+                                
                             print("*************")
                             print("y",y,p.getBaseVelocity(listbox[y][0]))
+                            
                             
             
                         else:
@@ -269,7 +279,7 @@ def execute_path():
                 #print(current_step)
                 #print("sleeping zzzzzzzzzzzzzzzzzzzzzzzzzzzz")
                 #time.sleep(1/240)
-                if(steps_list[x]==current_step):#if the edge of the robot is traversed 
+                if(steps_list[x]<=current_step):#if the edge of the robot is traversed 
                     #print("this is the steps for this robot:",current_node[x].time * 240)
                     p.resetBaseVelocity(listbox[x][0],[0.0,0.0, 0.0],[0.0,0.0,0.0])
                 #print(boolrob)
@@ -283,7 +293,7 @@ def execute_path():
 
 
             p.stepSimulation()
-            #time.sleep(1./240.)
+            time.sleep(1./240.)
             current_step=current_step+1
         print(p.getBasePositionAndOrientation(listbox[0][0]))
         
@@ -299,10 +309,10 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath()) #optionally
 p.setGravity(0,0,-10)
 #p.setRealTimeSimulation(1)
 planeId = p.loadURDF("plane.urdf",[0,0,0],p.getQuaternionFromEuler([0,0,0]),useFixedBase=True)
-startPos1 = [0,5,0]
-startPos2=[5,0,0]
-goal1=[10,5,0]
-goal2=[5,10,0]
+startPos1 = [0,0,0]
+startPos2=[2,0,0]
+goal1=[2,0,0]
+goal2=[0,0,0]
 startOrientation = p.getQuaternionFromEuler([0,0,0])
 box1Id = p.loadURDF("robot.urdf",startPos1, startOrientation,useFixedBase=True,flags=p.URDF_USE_INERTIA_FROM_FILE|p.URDF_USE_MATERIAL_COLORS_FROM_MTL,physicsClientId=0)
 box2Id = p.loadURDF("robot.urdf",startPos2, startOrientation,useFixedBase=True,flags=p.URDF_USE_INERTIA_FROM_FILE|p.URDF_USE_MATERIAL_COLORS_FROM_MTL,physicsClientId=0)
@@ -347,8 +357,8 @@ for box in listbox:
     while goal_reached is not True:#goal_n>(0,0,0)):
         chance = random.uniform(0,100)
         if(0<=int(chance)<90):
-            pos_x = random.uniform(0,6)
-            pos_y = random.uniform(0,6)
+            pos_x = random.uniform(0,2)
+            pos_y = random.uniform(0,2)
         else:
             pos_x = box[1][0]
             pos_y = box[1][1]
